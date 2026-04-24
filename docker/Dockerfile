@@ -58,10 +58,6 @@ WORKDIR /app
 
 COPY Gemfile Gemfile.lock ./
 
-# natively compile grpc and protobuf to support alpine musl (dialogflow-docker workflow)
-# https://github.com/googleapis/google-cloud-ruby/issues/13306
-# adding xz as nokogiri was failing to build libxml
-# https://github.com/clord/clord/issues/4045
 RUN apk update && apk add --no-cache build-base musl ruby-full ruby-dev gcc make musl-dev openssl openssl-dev g++ linux-headers xz vips
 RUN bundle config set --local force_ruby_platform true
 
@@ -76,8 +72,6 @@ RUN pnpm i
 
 COPY . /app
 
-# creating a log directory so that image wont fail when RAILS_LOG_TO_STDOUT is false
-# https://github.com/clord/clord/issues/701
 RUN mkdir -p /app/log
 
 # generate production assets if production environment
@@ -95,7 +89,9 @@ RUN rm -rf /gems/ruby/3.4.0/cache/*.gem \
   && rm -rf .git \
   && rm .gitignore
 
+# ============================================================
 # final build stage
+# ============================================================
 FROM ruby:3.4.4-alpine3.21
 
 ARG NODE_VERSION="24.13.0"
@@ -141,11 +137,15 @@ RUN if [ "$RAILS_ENV" != "production" ]; then \
   && pnpm --version; \
   fi
 
+# ✅ THE FIX — copy files first, THEN chmod
+# Before: chmod ran before COPY so the file didn't exist yet
 COPY --from=pre-builder /gems/ /gems/
 COPY --from=pre-builder /app /app
-
-# Copy .git_sha file from pre-builder stage
 COPY --from=pre-builder /app/.git_sha /app/.git_sha
+
+# Now the files exist, so chmod works
+RUN chmod +x /app/docker/entrypoints/rails.sh \
+  && chmod +x /app/docker/entrypoints/vite.sh
 
 WORKDIR /app
 

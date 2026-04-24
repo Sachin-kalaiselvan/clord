@@ -1,20 +1,9 @@
-FROM ruby:3.4.4-alpine3.21
+FROM clord:development
 
-WORKDIR /app
+ENV PNPM_HOME="/root/.local/share/pnpm"
+ENV PATH="$PNPM_HOME:$PATH"
 
-RUN apk add --no-cache \
-  build-base \
-  postgresql-dev \
-  nodejs \
-  yarn \
-  git
-
-COPY Gemfile Gemfile.lock ./
-
-RUN gem install bundler && bundle install
-
-COPY . .
+RUN chmod +x /app/docker/entrypoints/rails.sh
 
 EXPOSE 3000
-
-CMD ["bundle", "exec", "rails", "s", "-b", "0.0.0.0"]
+CMD ["rails", "server", "-b", "0.0.0.0", "-p", "3000"]
